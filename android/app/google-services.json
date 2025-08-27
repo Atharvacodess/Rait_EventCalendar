@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "541581618793",
+    "project_id": "event-calendar-app-f03e4",
+    "storage_bucket": "event-calendar-app-f03e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:541581618793:android:daa9f2051d0ffac9b53cf8",
+        "android_client_info": {
+          "package_name": "com.rait.eventcalendar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5l-JWOOlXccafEgZO-z7W1WgNyqvMCzQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

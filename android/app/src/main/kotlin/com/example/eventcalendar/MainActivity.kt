@@ -1,0 +1,5 @@
+package com.rait.eventcalendar
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
