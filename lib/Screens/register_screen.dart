@@ -17,7 +17,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _selectedRole = 'hod';
+  String _selectedRole = 'student'; // Default to student
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -45,9 +45,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final authService = Provider.of<AuthService>(context, listen: false);
 
-    String? error = await authService.registerAdmin(
-      _emailController.text,
+    String? error = await authService.registerUser(
+      _nameController.text.trim(),
+      _emailController.text.trim(),
       _passwordController.text,
+      _selectedRole,
     );
 
     if (error != null) {
@@ -62,7 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register Admin'),
+        title: const Text('Register'),
         centerTitle: true,
       ),
       backgroundColor: Colors.grey[50],
@@ -89,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 24),
 
                 const Text(
-                  'Create Admin Account',
+                  'Create Account',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -98,7 +100,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Register as HOD or Principal',
+                  'Join College Event Calendar',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
@@ -178,6 +180,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
+                            DropdownMenuItem(
+                              value: 'student',
+                              child: Text('Student'),
+                            ),
                             DropdownMenuItem(
                               value: 'hod',
                               child: Text('Head of Department (HOD)'),
