@@ -4,6 +4,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../models/event.dart';
+import 'add_event_dialog.dart';
+import 'edit_event_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -453,16 +455,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddEventDialog(BuildContext context) {
-    // TODO: Implement add event dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Event dialog coming next!')),
+    showDialog(
+      context: context,
+      builder: (context) => AddEventDialog(
+        selectedDate: _selectedDay!,
+        onEventAdded: _loadEvents,
+      ),
     );
   }
 
   void _showEditEventDialog(BuildContext context, EventModel event) {
-    // TODO: Implement edit event dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit Event dialog coming next!')),
+    showDialog(
+      context: context,
+      builder: (context) => EditEventDialog(
+        event: event,
+        onEventUpdated: _loadEvents,
+      ),
     );
   }
 
