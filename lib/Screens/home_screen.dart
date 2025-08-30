@@ -139,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, authService, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('College Event Calendar'),
+            title: const Text('RAIT EVENT CALENDAR'),
             centerTitle: true,
             actions: [
               // User info and logout

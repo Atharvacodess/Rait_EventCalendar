@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Title
                 const Text(
-                  'College Event Calendar',
+                  'RAIT EVENT CALENDAR',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Admin Login',
+                  'Login Page',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
@@ -284,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                   child: const Text(
-                    'New Admin? Register Here',
+                    'New User? Register Here',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
