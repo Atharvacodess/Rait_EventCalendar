@@ -5,7 +5,6 @@ import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -47,23 +46,61 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  String _getErrorMessage(String error) {
+    // Convert Firebase error codes to user-friendly messages
+    switch (error) {
+      case 'user-not-found':
+        return 'No account found with this email address.';
+      case 'wrong-password':
+        return 'Invalid email or wrong password.';
+      case 'invalid-email':
+        return 'Invalid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection.';
+      case 'invalid-credential':
+        return 'Invalid email or wrong password.';
+      case 'user-not-in-database':
+        return 'Access denied. User not found in system database.\nPlease contact admin.';
+      case 'auth-error':
+        return 'Authentication failed. Please try again.';
+      case 'unknown-error':
+        return 'An unexpected error occurred. Please try again.';
+      default:
+        return 'Invalid email or wrong password.';
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authService = Provider.of<AuthService>(context, listen: false);
 
-    String? error = await authService.signInWithEmailPassword(
-      _emailController.text,
-      _passwordController.text,
-      _rememberMe,
-    );
-
-    if (error != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+    try {
+      String? error = await authService.signInWithEmailPassword(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _rememberMe,
       );
 
+      if (error == null) {
+        // Login successful - no error returned
+        _showSnackBar('Login successful!', isError: false);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        // Login failed - show error message
+        String userFriendlyMessage = _getErrorMessage(error);
+        _showSnackBar(userFriendlyMessage);
+      }
+    } catch (e) {
+      // Handle any unexpected errors
+      _showSnackBar('An unexpected error occurred. Please try again.');
     }
   }
 
@@ -207,6 +244,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 50,
                               child: ElevatedButton(
                                 onPressed: authService.isLoading ? null : _handleLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
                                 child: authService.isLoading
                                     ? const SpinKitThreeBounce(
                                   color: Colors.white,

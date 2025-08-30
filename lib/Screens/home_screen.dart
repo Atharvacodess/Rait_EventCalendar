@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../models/event.dart';
 import 'add_event_dialog.dart';
 import 'edit_event_dialog.dart';
+import 'login_screen.dart'; // Add this import
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -90,6 +91,48 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.signOut();
+
+      // Pop loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Navigate to login screen and clear all previous routes
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      print('Logout error: $e');
+
+      // Pop loading dialog if it exists
+      if (mounted) Navigator.of(context).pop();
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logout failed. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
@@ -103,8 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuButton<String>(
                 onSelected: (value) async {
                   if (value == 'logout') {
-                    await authService.signOut();
-                    Navigator.of(context).pushReplacementNamed('/login');
+                    await _handleLogout();
                   }
                 },
                 itemBuilder: (context) => [
