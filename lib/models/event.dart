@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:college_event_calendar/models/notifications/reminder_policy.dart';
 
 class EventModel {
   final String? id;
@@ -16,6 +17,11 @@ class EventModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  // NEW: Notification fields
+  final bool notificationsEnabled;
+  final String? reminderPolicyId;
+  final ReminderPolicy? reminderPolicy;
+
   EventModel({
     this.id,
     required this.title,
@@ -31,6 +37,10 @@ class EventModel {
     required this.createdByName,
     required this.createdAt,
     this.updatedAt,
+    // NEW: Add these with defaults
+    this.notificationsEnabled = false,
+    this.reminderPolicyId,
+    this.reminderPolicy,
   });
 
   factory EventModel.fromFirestore(DocumentSnapshot doc) {
@@ -50,6 +60,10 @@ class EventModel {
       createdByName: data['createdByName'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      // NEW: Add these
+      notificationsEnabled: data['notificationsEnabled'] ?? false,
+      reminderPolicyId: data['reminderPolicyId'],
+      reminderPolicy: null, // Will be loaded separately if needed
     );
   }
 
@@ -68,6 +82,9 @@ class EventModel {
       'createdByName': createdByName,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      // NEW: Add these
+      'notificationsEnabled': notificationsEnabled,
+      'reminderPolicyId': reminderPolicyId,
     };
   }
 
@@ -86,6 +103,10 @@ class EventModel {
     String? createdByName,
     DateTime? createdAt,
     DateTime? updatedAt,
+    // NEW: Add these
+    bool? notificationsEnabled,
+    String? reminderPolicyId,
+    ReminderPolicy? reminderPolicy,
   }) {
     return EventModel(
       id: id ?? this.id,
@@ -102,10 +123,33 @@ class EventModel {
       createdByName: createdByName ?? this.createdByName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      // NEW: Add these
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      reminderPolicyId: reminderPolicyId ?? this.reminderPolicyId,
+      reminderPolicy: reminderPolicy ?? this.reminderPolicy,
     );
   }
 
-  // Helper getters
+  // Helper method to load reminder policy
+  Future<EventModel> loadReminderPolicy(FirebaseFirestore firestore) async {
+    if (reminderPolicyId == null) return this;
+
+    try {
+      final policyDoc = await firestore
+          .collection('reminder_policies')
+          .doc(reminderPolicyId)
+          .get();
+
+      if (!policyDoc.exists) return this;
+
+      return copyWith(reminderPolicy: ReminderPolicy.fromFirestore(policyDoc));
+    } catch (e) {
+      print('Failed to load reminder policy: $e');
+      return this;
+    }
+  }
+
+  // Existing helper getters
   bool get isToday {
     final now = DateTime.now();
     return date.year == now.year &&

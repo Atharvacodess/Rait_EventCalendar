@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../models/event.dart';
+import '../models/notifications/reminder_policy.dart';
+import '../services/notifications/notification_scheduler.dart';
 
 class AddEventDialog extends StatefulWidget {
   final DateTime selectedDate;
@@ -25,10 +27,16 @@ class _AddEventDialogState extends State<AddEventDialog> {
   final _timeController = TextEditingController();
   final _venueController = TextEditingController();
   final _organizerController = TextEditingController();
+  final _customMinutesController = TextEditingController(text: '60');
 
   String _selectedEventType = 'academic';
   List<String> _selectedAudience = [];
   bool _isLoading = false;
+
+  // Notification fields
+  bool _notificationsEnabled = false;
+  Set<ReminderTiming> _selectedTimings = {};
+  Set<NotificationChannel> _selectedChannels = {NotificationChannel.push};
 
   final List<String> _eventTypes = [
     'academic',
@@ -58,6 +66,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
     _timeController.dispose();
     _venueController.dispose();
     _organizerController.dispose();
+    _customMinutesController.dispose();
     super.dispose();
   }
 
@@ -83,41 +92,116 @@ class _AddEventDialogState extends State<AddEventDialog> {
       return;
     }
 
+    // Validate notification settings
+    if (_notificationsEnabled) {
+      if (_selectedTimings.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one reminder timing')),
+        );
+        return;
+      }
+      if (_selectedChannels.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one notification channel')),
+        );
+        return;
+      }
+      if (_selectedTimings.contains(ReminderTiming.custom)) {
+        final customMinutes = int.tryParse(_customMinutesController.text);
+        if (customMinutes == null || customMinutes <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enter valid custom minutes')),
+          );
+          return;
+        }
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      final firestore = FirebaseFirestore.instance;
 
-      final event = EventModel(
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        date: widget.selectedDate,
-        time: _timeController.text.trim(),
-        venue: _venueController.text.trim(),
-        organizer: _organizerController.text.trim(),
-        targetAudience: _selectedAudience,
-        eventType: _selectedEventType,
-        createdBy: authService.currentUser!.uid,
-        createdByName: authService.userName ?? 'Admin',
-        createdAt: DateTime.now(),
-      );
+      // Create the event first
+      final eventRef = await firestore.collection('events').add({
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'date': Timestamp.fromDate(widget.selectedDate),
+        'time': _timeController.text.trim(),
+        'venue': _venueController.text.trim(),
+        'organizer': _organizerController.text.trim(),
+        'targetAudience': _selectedAudience,
+        'eventType': _selectedEventType,
+        'createdBy': authService.currentUser!.uid,
+        'createdByName': authService.userName ?? 'Admin',
+        'createdAt': FieldValue.serverTimestamp(),
+        'notificationsEnabled': _notificationsEnabled,
+      });
 
-      await FirebaseFirestore.instance
-          .collection('events')
-          .add(event.toFirestore());
+      ReminderPolicy? createdPolicy;
+
+      // Create reminder policy if notifications are enabled
+      if (_notificationsEnabled) {
+        final customMinutes = _selectedTimings.contains(ReminderTiming.custom)
+            ? int.tryParse(_customMinutesController.text)
+            : null;
+
+        final policyRef = await firestore.collection('reminder_policies').add({
+          'eventId': eventRef.id,
+          'timings': _selectedTimings.map((e) => e.value).toList(),
+          'customMinutes': customMinutes,
+          'enabled': true,
+          'channels': _selectedChannels.map((e) => e.value).toList(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update event with policy reference
+        await eventRef.update({'reminderPolicyId': policyRef.id});
+
+        // Fetch the created policy
+        final policyDoc = await policyRef.get();
+        createdPolicy = ReminderPolicy.fromFirestore(policyDoc);
+      }
+
+      // Schedule notifications if enabled
+      if (_notificationsEnabled && createdPolicy != null) {
+        final eventDoc = await eventRef.get();
+        final event = EventModel.fromFirestore(eventDoc);
+        final eventWithPolicy = event.copyWith(reminderPolicy: createdPolicy);
+
+        // Schedule the notifications
+        final scheduler = NotificationScheduler();
+        await scheduler.scheduleNotificationsForEvent(eventWithPolicy);
+
+        print('✅ Notifications scheduled for event ${event.id}');
+      }
 
       widget.onEventAdded();
-      Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event created successfully!')),
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _notificationsEnabled
+                  ? 'Event created with reminders!'
+                  : 'Event created successfully!',
+            ),
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating event: $e')),
-      );
+      print('Error creating event: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating event: $e')),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -126,7 +210,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
     return Dialog(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.8,
+        height: MediaQuery.of(context).size.height * 0.85,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,6 +389,109 @@ class _AddEventDialogState extends State<AddEventDialog> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Notification Settings
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.blue.withOpacity(0.05),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.notifications_active, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Event Reminders',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Switch(
+                                  value: _notificationsEnabled,
+                                  onChanged: (value) {
+                                    setState(() => _notificationsEnabled = value);
+                                  },
+                                ),
+                              ],
+                            ),
+                            if (_notificationsEnabled) ...[
+                              const Divider(height: 24),
+                              const Text(
+                                'When to send reminders:',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...ReminderTiming.values.map((timing) {
+                                return CheckboxListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  value: _selectedTimings.contains(timing),
+                                  title: Text(timing.label),
+                                  onChanged: (bool? selected) {
+                                    setState(() {
+                                      if (selected == true) {
+                                        _selectedTimings.add(timing);
+                                      } else {
+                                        _selectedTimings.remove(timing);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                              if (_selectedTimings.contains(ReminderTiming.custom))
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 16, top: 8),
+                                  child: TextFormField(
+                                    controller: _customMinutesController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Minutes before event',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Notification channels:',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...NotificationChannel.values.map((channel) {
+                                return CheckboxListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  value: _selectedChannels.contains(channel),
+                                  title: Text(channel.label),
+                                  onChanged: (bool? selected) {
+                                    setState(() {
+                                      if (selected == true) {
+                                        _selectedChannels.add(channel);
+                                      } else {
+                                        _selectedChannels.remove(channel);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

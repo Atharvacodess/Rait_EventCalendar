@@ -6,7 +6,8 @@ import '../services/auth_service.dart';
 import '../models/event.dart';
 import 'add_event_dialog.dart';
 import 'edit_event_dialog.dart';
-import 'login_screen.dart'; // Add this import
+import 'login_screen.dart';
+import '../test_notification_system.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -142,6 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
             title: const Text('RAIT EVENT CALENDAR'),
             centerTitle: true,
             actions: [
+              // Test Notifications button
+              IconButton(
+                icon: const Icon(Icons.science),
+                tooltip: 'Test Notifications',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationTestScreen(),
+                    ),
+                  );
+                },
+              ),
               // User info and logout
               PopupMenuButton<String>(
                 onSelected: (value) async {
