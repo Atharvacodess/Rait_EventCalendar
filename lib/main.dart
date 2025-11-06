@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'services/notifications/notification_manager.dart';
+import 'services/notifications/notification_worker.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
@@ -16,6 +17,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
   await Firebase.initializeApp();
 
   // Set background message handler
@@ -23,6 +26,9 @@ void main() async {
 
   // Initialize notification manager
   NotificationManager();
+
+  // Initialize background notification worker
+  await NotificationWorker.initialize();
 
   runApp(const MyApp());
 }
@@ -39,18 +45,21 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'College Event Calendar',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF6A1B1A),
+            brightness: Brightness.light,
+          ),
+          useMaterial3: true,
           appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.blue,
+            backgroundColor: Color(0xFF6A1B1A),
             foregroundColor: Colors.white,
             elevation: 0,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: const Color(0xFF6A1B1A),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),

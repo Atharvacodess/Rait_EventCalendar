@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:college_event_calendar/services/notifications/notification_scheduler.dart';
 import 'package:college_event_calendar/services/notifications/notification_manager.dart';
+import 'package:college_event_calendar/services/notifications/notification_worker.dart';
 import 'package:college_event_calendar/models/event.dart';
 import 'package:college_event_calendar/models/notifications/reminder_policy.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationTestScreen extends StatefulWidget {
   const NotificationTestScreen({Key? key}) : super(key: key);
@@ -15,6 +17,8 @@ class NotificationTestScreen extends StatefulWidget {
 class _NotificationTestScreenState extends State<NotificationTestScreen> {
   final _notificationManager = NotificationManager();
   final _notificationScheduler = NotificationScheduler();
+  final _titleController = TextEditingController(text: 'Test Event Reminder');
+  final _bodyController = TextEditingController(text: 'Your event is starting soon!');
   String _status = 'Ready to test';
   bool _hasPermission = false;
 
@@ -22,6 +26,13 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
   void initState() {
     super.initState();
     _checkPermission();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkPermission() async {
@@ -93,32 +104,103 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
     setState(() => _status = 'Checking scheduled notifications...');
 
     try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId == null) {
+        setState(() => _status = 'Not logged in');
+        return;
+      }
+
+      // Check notifications for current user
       final snapshot = await FirebaseFirestore.instance
           .collection('scheduled_notifications')
+          .where('recipientId', isEqualTo: currentUserId)
           .get();
 
       if (snapshot.docs.isEmpty) {
-        setState(() => _status = 'No scheduled notifications found');
+        setState(() => _status = 'No scheduled notifications for you');
       } else {
-        setState(() => _status = 'Found ${snapshot.docs.length} scheduled notifications');
+        final scheduled = snapshot.docs.where((d) => d.data()['status'] == 'scheduled').length;
+        final sent = snapshot.docs.where((d) => d.data()['status'] == 'sent').length;
+        setState(() => _status = 'Total: ${snapshot.docs.length} (Scheduled: $scheduled, Sent: $sent)');
       }
     } catch (e) {
       setState(() => _status = 'Error: $e');
     }
   }
 
-  // 🔔 NEW: Trigger an instant test notification
-  Future<void> _sendInstantNotification() async {
-    try {
-      setState(() => _status = 'Sending test notification...');
-      await _notificationManager.showInstantNotification(
-        title: 'Test Notification',
-        body: 'This is a test push notification for demo purposes.',
-      );
-      setState(() => _status = 'Test notification sent!');
-    } catch (e) {
-      setState(() => _status = 'Failed to send notification: $e');
+  Future<void> _sendCustomNotification() async {
+    if (_titleController.text.trim().isEmpty || _bodyController.text.trim().isEmpty) {
+      setState(() => _status = 'Please enter title and message');
+      return;
     }
+
+    try {
+      setState(() => _status = 'Sending custom notification...');
+      await _notificationManager.showInstantNotification(
+        title: _titleController.text.trim(),
+        body: _bodyController.text.trim(),
+      );
+      setState(() => _status = '✅ Custom notification sent!');
+    } catch (e) {
+      setState(() => _status = '❌ Failed: $e');
+    }
+  }
+
+  Future<void> _triggerBackgroundCheck() async {
+    try {
+      setState(() => _status = 'Triggering background notification check...');
+      await NotificationWorker.triggerNow();
+
+      // Wait a moment for the task to complete
+      await Future.delayed(const Duration(seconds: 3));
+
+      setState(() => _status = '✅ Background check triggered! Check your notifications.');
+    } catch (e) {
+      setState(() => _status = '❌ Failed to trigger: $e');
+    }
+  }
+
+  Future<void> _showCustomNotificationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Custom Notification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Notification Title',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _bodyController,
+              decoration: const InputDecoration(
+                labelText: 'Notification Message',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _sendCustomNotification();
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -127,12 +209,14 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
       appBar: AppBar(
         title: const Text('Test Notification System'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Status Card
             Card(
+              color: _hasPermission ? Colors.green.shade50 : Colors.orange.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -146,59 +230,157 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
                     Text(
                       _status,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (!_hasPermission)
+
+            // Permission Section
+            if (!_hasPermission) ...[
+              const Text(
+                '⚠️ Permissions',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               ElevatedButton.icon(
                 onPressed: _requestPermission,
                 icon: const Icon(Icons.notifications),
                 label: const Text('Request Notification Permission'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               ),
+              const SizedBox(height: 24),
+            ],
+
+            // Quick Test Section
+            const Text(
+              '🚀 Quick Tests',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              onPressed: _showCustomNotificationDialog,
+              icon: const Icon(Icons.edit_notifications),
+              label: const Text('Send Custom Notification'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              onPressed: _triggerBackgroundCheck,
+              icon: const Icon(Icons.sync),
+              label: const Text('Check Notifications Now (Manual)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Event-Based Tests
+            const Text(
+              '📅 Event-Based Tests',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
             ElevatedButton.icon(
               onPressed: _testScheduleNotification,
               icon: const Icon(Icons.schedule),
-              label: const Text('Test: Schedule Notifications'),
+              label: const Text('Schedule Notifications for Latest Event'),
             ),
             const SizedBox(height: 8),
+
             ElevatedButton.icon(
               onPressed: _checkScheduledNotifications,
               icon: const Icon(Icons.list),
-              label: const Text('Check Scheduled Notifications'),
+              label: const Text('Check My Scheduled Notifications'),
             ),
-
-            // 🚀 NEW BUTTON HERE
             const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: _sendInstantNotification,
-              icon: const Icon(Icons.notifications_active),
-              label: const Text('Send Instant Notification'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-            ),
 
-            const SizedBox(height: 8),
             ElevatedButton.icon(
               onPressed: _checkPermission,
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh Status'),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Instructions:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+
+            // Instructions
+            Card(
+              color: Colors.blue.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          'How to Test',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInstruction('1', 'Request notification permission first'),
+                    _buildInstruction('2', 'Use "Send Custom Notification" for instant test'),
+                    _buildInstruction('3', 'Create an event with "Custom: 1 minute" reminder'),
+                    _buildInstruction('4', 'Click "Check Notifications Now" after 1 minute'),
+                    _buildInstruction('5', 'Or wait - background worker checks every 15 minutes'),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text('1. Request notification permission'),
-            const Text('2. Create an event with notifications enabled'),
-            const Text('3. Click "Send Instant Notification" to test immediately'),
-            const Text('4. Click "Test: Schedule Notifications" for event-based scheduling'),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInstruction(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

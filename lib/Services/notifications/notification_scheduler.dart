@@ -20,8 +20,9 @@ class NotificationScheduler {
     }
 
     final reminderPolicy = event.reminderPolicy!;
-    final eventDate = event.date;
-    final now = DateTime.now();
+    // ✅ Use UTC consistently
+    final DateTime eventDateUtc = event.date.toUtc();
+    final DateTime nowUtc = DateTime.now().toUtc();
 
     // Get all recipients for this event
     final recipients = await _getEventRecipients(event);
@@ -32,13 +33,31 @@ class NotificationScheduler {
           timing,
           customMinutes: reminderPolicy.customMinutes,
         );
-        final scheduledFor = strategy.calculateScheduleTime(eventDate);
 
-        // Skip if the scheduled time is in the past
-        if (scheduledFor.isBefore(now)) {
-          print('Skipping past notification for $timing - scheduled for $scheduledFor');
+        // strategy.calculateScheduleTime() returns a DateTime based on event date
+        // Normalize it to UTC for storage & comparison.
+        DateTime scheduledUtc =
+        strategy.calculateScheduleTime(eventDateUtc).toUtc();
+
+        // Optional: tiny demo clamp (leave disabled by default)
+        const bool demoMode = false; // set true only for presentations
+        if (demoMode && scheduledUtc.isBefore(nowUtc)) {
+          scheduledUtc = nowUtc.add(const Duration(seconds: 20));
+        }
+
+        // Skip if the scheduled time is too far in the past (production guard)
+        // (Allows "due now" items but skips very old ones, e.g., >1h)
+        final tooOldCutoff = nowUtc.subtract(const Duration(hours: 1));
+        if (scheduledUtc.isBefore(tooOldCutoff)) {
+          print('Skipping very old notification for $timing - scheduled for $scheduledUtc (now=$nowUtc)');
           continue;
         }
+
+        // If you want to skip anything strictly before "now", uncomment:
+        // if (scheduledUtc.isBefore(nowUtc)) {
+        //   print('Skipping past notification for $timing - scheduled for $scheduledUtc (now=$nowUtc)');
+        //   continue;
+        // }
 
         // Create notifications for each recipient and channel
         for (final recipient in recipients) {
@@ -49,7 +68,7 @@ class NotificationScheduler {
               recipientId: recipient['id']!,
               recipientType: recipient['type']!,
               timing: timing,
-              scheduledFor: scheduledFor,
+              scheduledFor: scheduledUtc, // ✅ pass UTC
               channel: channel,
               event: event,
             );
@@ -104,7 +123,7 @@ class NotificationScheduler {
     required String recipientId,
     required String recipientType,
     required ReminderTiming timing,
-    required DateTime scheduledFor,
+    required DateTime scheduledFor, // expected UTC
     required NotificationChannel channel,
     required EventModel event,
   }) async {
@@ -116,7 +135,8 @@ class NotificationScheduler {
       'recipientId': recipientId,
       'recipientType': recipientType,
       'timing': timing.value,
-      'scheduledFor': Timestamp.fromDate(scheduledFor),
+      // ✅ write UTC to Firestore
+      'scheduledFor': Timestamp.fromDate(scheduledFor.toUtc()),
       'status': NotificationStatus.scheduled.name,
       'channel': channel.value,
       'payload': payload.toMap(),
@@ -138,7 +158,8 @@ class NotificationScheduler {
       body: '${event.title} is starting $timingLabel',
       eventId: event.id!,
       eventTitle: event.title,
-      eventDate: event.date,
+      // ✅ carry UTC in payload (UI can display toLocal())
+      eventDate: event.date.toUtc(),
       data: {
         'type': 'event_reminder',
         'eventId': event.id!,
@@ -147,7 +168,7 @@ class NotificationScheduler {
     );
   }
 
-  /// Get recipients for an event based on target audience
+  /// Get recipients for an event based on target audience (unchanged)
   Future<List<Map<String, String>>> _getEventRecipients(EventModel event) async {
     final recipients = <Map<String, String>>[];
 
@@ -196,11 +217,12 @@ class NotificationScheduler {
 
   /// Get all pending notifications that need to be sent
   Future<List<ScheduledNotification>> getPendingNotifications() async {
-    final now = Timestamp.now();
+    // ✅ compare with UTC "now"
+    final Timestamp nowUtcTs = Timestamp.fromDate(DateTime.now().toUtc());
     final query = await _firestore
         .collection(_collection)
         .where('status', isEqualTo: NotificationStatus.scheduled.name)
-        .where('scheduledFor', isLessThanOrEqualTo: now)
+        .where('scheduledFor', isLessThanOrEqualTo: nowUtcTs)
         .get();
 
     return query.docs

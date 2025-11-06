@@ -44,12 +44,13 @@ class EventModel {
   });
 
   factory EventModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
     return EventModel(
       id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      // ✅ Read as UTC
+      date: ((data['date'] as Timestamp?)?.toDate().toUtc()) ?? DateTime.now().toUtc(),
       time: data['time'] ?? '',
       venue: data['venue'] ?? '',
       organizer: data['organizer'] ?? '',
@@ -58,8 +59,9 @@ class EventModel {
       status: data['status'] ?? 'upcoming',
       createdBy: data['createdBy'] ?? '',
       createdByName: data['createdByName'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      // ✅ Read as UTC
+      createdAt: ((data['createdAt'] as Timestamp?)?.toDate().toUtc()) ?? DateTime.now().toUtc(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate().toUtc(),
       // NEW: Add these
       notificationsEnabled: data['notificationsEnabled'] ?? false,
       reminderPolicyId: data['reminderPolicyId'],
@@ -71,7 +73,8 @@ class EventModel {
     return {
       'title': title,
       'description': description,
-      'date': Timestamp.fromDate(date),
+      // ✅ Write as UTC
+      'date': Timestamp.fromDate(date.toUtc()),
       'time': time,
       'venue': venue,
       'organizer': organizer,
@@ -80,8 +83,9 @@ class EventModel {
       'status': status,
       'createdBy': createdBy,
       'createdByName': createdByName,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      // ✅ Write as UTC
+      'createdAt': Timestamp.fromDate(createdAt.toUtc()),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!.toUtc()) : null,
       // NEW: Add these
       'notificationsEnabled': notificationsEnabled,
       'reminderPolicyId': reminderPolicyId,
@@ -149,18 +153,20 @@ class EventModel {
     }
   }
 
-  // Existing helper getters
+  // Existing helper getters (compare using UTC)
   bool get isToday {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc(); // ✅
     return date.year == now.year &&
         date.month == now.month &&
         date.day == now.day;
   }
 
-  bool get isUpcoming => date.isAfter(DateTime.now());
-  bool get isPast => date.isBefore(DateTime.now());
+  bool get isUpcoming => date.isAfter(DateTime.now().toUtc()); // ✅
+  bool get isPast => date.isBefore(DateTime.now().toUtc());    // ✅
 
+  // Display in local timezone for UI
   String get formattedDate {
-    return '${date.day}/${date.month}/${date.year}';
+    final d = date.toLocal(); // ✅ for user-facing text
+    return '${d.day}/${d.month}/${d.year}';
   }
 }

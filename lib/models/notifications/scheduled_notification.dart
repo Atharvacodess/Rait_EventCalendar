@@ -6,7 +6,7 @@ class NotificationPayload {
   final String body;
   final String eventId;
   final String eventTitle;
-  final DateTime eventDate;
+  final DateTime eventDate; // store as UTC in model
   final Map<String, dynamic>? data;
 
   NotificationPayload({
@@ -24,7 +24,8 @@ class NotificationPayload {
       body: map['body'],
       eventId: map['eventId'],
       eventTitle: map['eventTitle'],
-      eventDate: (map['eventDate'] as Timestamp).toDate(),
+      // ✅ read UTC
+      eventDate: (map['eventDate'] as Timestamp).toDate().toUtc(),
       data: map['data'],
     );
   }
@@ -35,7 +36,8 @@ class NotificationPayload {
       'body': body,
       'eventId': eventId,
       'eventTitle': eventTitle,
-      'eventDate': Timestamp.fromDate(eventDate),
+      // ✅ write UTC
+      'eventDate': Timestamp.fromDate(eventDate.toUtc()),
       'data': data,
     };
   }
@@ -48,17 +50,17 @@ class ScheduledNotification {
   final String recipientId;
   final String recipientType;
   final ReminderTiming timing;
-  final DateTime scheduledFor;
+  final DateTime scheduledFor; // keep UTC in model
   final NotificationStatus status;
   final NotificationChannel channel;
   final NotificationPayload payload;
   final int attempts;
-  final DateTime? lastAttemptAt;
-  final DateTime? sentAt;
-  final DateTime? deliveredAt;
+  final DateTime? lastAttemptAt; // UTC
+  final DateTime? sentAt;        // UTC
+  final DateTime? deliveredAt;   // UTC
   final String? error;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime createdAt;      // UTC
+  final DateTime updatedAt;      // UTC
 
   ScheduledNotification({
     required this.id,
@@ -89,23 +91,25 @@ class ScheduledNotification {
       recipientId: data['recipientId'],
       recipientType: data['recipientType'],
       timing: ReminderTiming.fromString(data['timing']),
-      scheduledFor: (data['scheduledFor'] as Timestamp).toDate(),
+      // ✅ read UTC
+      scheduledFor: (data['scheduledFor'] as Timestamp).toDate().toUtc(),
       status: NotificationStatus.values.byName(data['status']),
       channel: NotificationChannel.fromString(data['channel']),
       payload: NotificationPayload.fromMap(data['payload']),
       attempts: data['attempts'] ?? 0,
       lastAttemptAt: data['lastAttemptAt'] != null
-          ? (data['lastAttemptAt'] as Timestamp).toDate()
+          ? (data['lastAttemptAt'] as Timestamp).toDate().toUtc()
           : null,
       sentAt: data['sentAt'] != null
-          ? (data['sentAt'] as Timestamp).toDate()
+          ? (data['sentAt'] as Timestamp).toDate().toUtc()
           : null,
       deliveredAt: data['deliveredAt'] != null
-          ? (data['deliveredAt'] as Timestamp).toDate()
+          ? (data['deliveredAt'] as Timestamp).toDate().toUtc()
           : null,
       error: data['error'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      // ✅ read UTC
+      createdAt: (data['createdAt'] as Timestamp).toDate().toUtc(),
+      updatedAt: (data['updatedAt'] as Timestamp).toDate().toUtc(),
     );
   }
 
@@ -116,17 +120,22 @@ class ScheduledNotification {
       'recipientId': recipientId,
       'recipientType': recipientType,
       'timing': timing.value,
-      'scheduledFor': Timestamp.fromDate(scheduledFor),
+      // ✅ write UTC
+      'scheduledFor': Timestamp.fromDate(scheduledFor.toUtc()),
       'status': status.name,
       'channel': channel.value,
       'payload': payload.toMap(),
       'attempts': attempts,
-      'lastAttemptAt': lastAttemptAt != null ? Timestamp.fromDate(lastAttemptAt!) : null,
-      'sentAt': sentAt != null ? Timestamp.fromDate(sentAt!) : null,
-      'deliveredAt': deliveredAt != null ? Timestamp.fromDate(deliveredAt!) : null,
+      'lastAttemptAt': lastAttemptAt != null
+          ? Timestamp.fromDate(lastAttemptAt!.toUtc())
+          : null,
+      'sentAt': sentAt != null ? Timestamp.fromDate(sentAt!.toUtc()) : null,
+      'deliveredAt':
+      deliveredAt != null ? Timestamp.fromDate(deliveredAt!.toUtc()) : null,
       'error': error,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      // ✅ write UTC
+      'createdAt': Timestamp.fromDate(createdAt.toUtc()),
+      'updatedAt': Timestamp.fromDate(updatedAt.toUtc()),
     };
   }
 }

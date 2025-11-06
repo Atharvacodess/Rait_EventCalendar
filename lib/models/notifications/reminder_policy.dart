@@ -37,13 +37,7 @@ enum NotificationChannel {
   }
 }
 
-enum NotificationStatus {
-  scheduled,
-  sent,
-  delivered,
-  failed,
-  cancelled
-}
+enum NotificationStatus { scheduled, sent, delivered, failed, cancelled }
 
 class ReminderPolicy {
   final String id;
@@ -68,6 +62,20 @@ class ReminderPolicy {
 
   factory ReminderPolicy.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // ✅ Coerce customMinutes robustly to int?
+    final raw = data['customMinutes'];
+    int? coercedCustomMinutes;
+    if (raw is int) {
+      coercedCustomMinutes = raw;
+    } else if (raw is double) {
+      coercedCustomMinutes = raw.round();
+    } else if (raw is String) {
+      coercedCustomMinutes = int.tryParse(raw);
+    } else {
+      coercedCustomMinutes = null;
+    }
+
     return ReminderPolicy(
       id: doc.id,
       eventId: data['eventId'] ?? '',
@@ -75,14 +83,15 @@ class ReminderPolicy {
           ?.map((e) => ReminderTiming.fromString(e.toString()))
           .toList() ??
           [],
-      customMinutes: data['customMinutes'],
+      customMinutes: coercedCustomMinutes,
       enabled: data['enabled'] ?? true,
       channels: (data['channels'] as List<dynamic>?)
           ?.map((e) => NotificationChannel.fromString(e.toString()))
           .toList() ??
           [NotificationChannel.push],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      // ✅ Read UTC
+      createdAt: (data['createdAt'] as Timestamp).toDate().toUtc(),
+      updatedAt: (data['updatedAt'] as Timestamp).toDate().toUtc(),
     );
   }
 
@@ -93,8 +102,9 @@ class ReminderPolicy {
       'customMinutes': customMinutes,
       'enabled': enabled,
       'channels': channels.map((e) => e.value).toList(),
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      // ✅ Write UTC
+      'createdAt': Timestamp.fromDate(createdAt.toUtc()),
+      'updatedAt': Timestamp.fromDate(updatedAt.toUtc()),
     };
   }
 

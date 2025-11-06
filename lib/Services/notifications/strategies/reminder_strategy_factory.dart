@@ -18,17 +18,15 @@ class ReminderStrategyFactory {
 
   static ReminderStrategy getStrategy(ReminderTiming timing, {int? customMinutes}) {
     if (timing == ReminderTiming.custom) {
-      if (customMinutes == null || customMinutes <= 0) {
-        throw Exception('Custom timing requires valid minutes');
-      }
-      return CustomStrategy(customMinutes);
+      // Necessary change: do not throw; coerce to a safe default of 1 minute if null/invalid
+      final minutes = (customMinutes == null || customMinutes <= 0) ? 1 : customMinutes;
+      return CustomStrategy(minutes);
     }
 
     final strategyFactory = _strategies[timing];
     if (strategyFactory == null) {
       throw Exception('Unknown reminder timing: $timing');
     }
-
     return strategyFactory();
   }
 

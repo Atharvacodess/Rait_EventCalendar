@@ -26,20 +26,6 @@ class NotificationManager {
     _initializeFCM();
     _setupMessageListener();
   }
-  /// Show an instant notification (for testing/demo)
-  Future<void> showInstantNotification({
-    required String title,
-    required String body,
-    Map<String, dynamic>? data,
-  }) async {
-    await _showLocalNotification(
-      title,
-      body,
-      data ?? {'eventId': 'test_event'},
-    );
-    print('✅ Instant test notification shown: $title - $body');
-  }
-
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -105,7 +91,8 @@ class NotificationManager {
       importance: Importance.high,
     );
 
-    final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(androidChannel);
@@ -148,7 +135,7 @@ class NotificationManager {
     }
   }
 
-  /// Show local notification
+  /// Show local notification (private method)
   Future<void> _showLocalNotification(
       String title,
       String body,
@@ -174,8 +161,31 @@ class NotificationManager {
       title,
       body,
       details,
-      payload: data['eventId'],
+      payload: data['eventId']?.toString(),
     );
+  }
+
+  /// Show local notification (PUBLIC method for background worker)
+  Future<void> showLocalNotification(
+      String title,
+      String body,
+      String eventId,
+      ) async {
+    await _showLocalNotification(title, body, {'eventId': eventId});
+  }
+
+  /// Show an instant notification (for testing/demo)
+  Future<void> showInstantNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    await _showLocalNotification(
+      title,
+      body,
+      data ?? {'eventId': 'test_event'},
+    );
+    print('✅ Instant test notification shown: $title - $body');
   }
 
   /// Handle notification tap
@@ -191,7 +201,7 @@ class NotificationManager {
     print('Navigate to event: ${data['eventId']}');
   }
 
-  /// Send a scheduled notification (called from Cloud Function)
+  /// Send a scheduled notification (called from background worker)
   Future<NotificationDeliveryResult> sendNotification(
       ScheduledNotification notification,
       ) async {
@@ -226,16 +236,15 @@ class NotificationManager {
     }
   }
 
-  /// Send push notification via FCM (through backend API)
+  /// Send push notification (simulated for free tier)
   Future<void> _sendPushNotification(ScheduledNotification notification) async {
-    // In production, this should call your backend API
-    // The Flutter app cannot directly send push notifications to other users
-    print('Simulating push notification for testing...');
+    // Show as local notification since we can't send FCM without backend
     await _showLocalNotification(
       notification.payload.title,
       notification.payload.body,
       {'eventId': notification.eventId},
     );
+    print('✅ Push notification shown locally: ${notification.payload.title}');
   }
 
   /// Send email notification
@@ -249,6 +258,7 @@ class NotificationManager {
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     });
+    print('📧 Email queued for processing');
   }
 
   /// Send in-app notification
@@ -261,12 +271,12 @@ class NotificationManager {
       'read': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    print('📱 In-app notification created');
   }
 
   /// Show in-app banner for fallback
   void showInAppBanner(String title, String body, {String? eventId}) {
     // Trigger in-app handlers to show banner
-    // You can implement this using a SnackBar or custom overlay
     print('In-App Banner: $title - $body');
   }
 
