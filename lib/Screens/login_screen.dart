@@ -19,6 +19,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
+  // RAIT maroon
+  static const Color _maroon = Color(0xFF6A1B1A);
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String _getErrorMessage(String error) {
-    // Convert Firebase error codes to user-friendly messages
     switch (error) {
       case 'user-not-found':
         return 'No account found with this email address.';
@@ -87,19 +89,16 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (error == null) {
-        // Login successful - no error returned
         _showSnackBar('Login successful!', isError: false);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       } else {
-        // Login failed - show error message
         String userFriendlyMessage = _getErrorMessage(error);
         _showSnackBar(userFriendlyMessage);
       }
-    } catch (e) {
-      // Handle any unexpected errors
+    } catch (_) {
       _showSnackBar('An unexpected error occurred. Please try again.');
     }
   }
@@ -120,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: Colors.blue,
+                    color: _maroon, // was blue
                     borderRadius: BorderRadius.circular(60),
                   ),
                   child: const Icon(
@@ -245,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 onPressed: authService.isLoading ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
+                                  backgroundColor: _maroon, // was blue
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -288,32 +287,33 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
+                      color: _maroon, // subtle brand color
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // Guest Access Info
+                // Guest Access Info (maroon-tinted, not blue)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: _maroon.withOpacity(0.06), // light maroon tint
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue[200]!),
+                    border: Border.all(color: _maroon.withOpacity(0.30)),
                   ),
                   child: Column(
                     children: [
                       Icon(
                         Icons.info_outline,
-                        color: Colors.blue[700],
+                        color: _maroon.withOpacity(0.8),
                         size: 24,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Students can view events without login',
                         style: TextStyle(
-                          color: Colors.blue[700],
+                          color: _maroon.withOpacity(0.85),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -322,6 +322,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           _showSnackBar('Guest view coming soon!', isError: false);
                         },
+                        style: TextButton.styleFrom(
+                          foregroundColor: _maroon,
+                        ),
                         child: const Text('View Events as Guest'),
                       ),
                     ],
