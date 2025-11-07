@@ -79,7 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: Colors.blue,
+                    color: const Color(0xFF7A1C1C), // RAIT maroon
                     borderRadius: BorderRadius.circular(40),
                   ),
                   child: const Icon(

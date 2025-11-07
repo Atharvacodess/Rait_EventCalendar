@@ -2,12 +2,12 @@ import 'package:college_event_calendar/services/notifications/strategies/reminde
 
 class OneHourStrategy implements ReminderStrategy {
   @override
-  DateTime calculateScheduleTime(DateTime eventDate) {
-    return eventDate.subtract(const Duration(hours: 1));
+  DateTime calculateScheduleTime(DateTime eventDateUtc) {
+    return eventDateUtc.toUtc().subtract(const Duration(hours: 1));
   }
 
   @override
-  String getTimingLabel() => '1 hour before';
+  String getTimingLabel() => 'in 1 hour';
 
   @override
   int getMinutesBeforeEvent() => 60;

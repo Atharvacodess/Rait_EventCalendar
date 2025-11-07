@@ -2,12 +2,12 @@ import 'package:college_event_calendar/services/notifications/strategies/reminde
 
 class FifteenMinutesStrategy implements ReminderStrategy {
   @override
-  DateTime calculateScheduleTime(DateTime eventDate) {
-    return eventDate.subtract(const Duration(minutes: 15));
+  DateTime calculateScheduleTime(DateTime eventDateUtc) {
+    return eventDateUtc.toUtc().subtract(const Duration(minutes: 15));
   }
 
   @override
-  String getTimingLabel() => '15 minutes before';
+  String getTimingLabel() => 'in 15 minutes';
 
   @override
   int getMinutesBeforeEvent() => 15;

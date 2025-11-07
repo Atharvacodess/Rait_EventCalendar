@@ -7,7 +7,7 @@ class CustomStrategy implements ReminderStrategy {
 
   @override
   DateTime calculateScheduleTime(DateTime eventDate) {
-    return eventDate.subtract(Duration(minutes: minutesBefore));
+    return eventDate.toUtc().subtract(Duration(minutes: minutesBefore));
   }
 
   @override
@@ -15,9 +15,10 @@ class CustomStrategy implements ReminderStrategy {
     final hours = minutesBefore ~/ 60;
     final minutes = minutesBefore % 60;
 
-    if (hours == 0) return '$minutes minutes before';
-    if (minutes == 0) return '$hours hour${hours > 1 ? 's' : ''} before';
-    return '${hours}h ${minutes}m before';
+    // PURE "in X" STYLE (no "before")
+    if (hours == 0) return 'in $minutes minute${minutes == 1 ? '' : 's'}';
+    if (minutes == 0) return 'in $hours hour${hours == 1 ? '' : 's'}';
+    return 'in $hours hour${hours == 1 ? '' : 's'} and $minutes minute${minutes == 1 ? '' : 's'}';
   }
 
   @override

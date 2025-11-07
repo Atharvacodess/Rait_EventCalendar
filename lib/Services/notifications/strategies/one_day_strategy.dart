@@ -2,13 +2,13 @@ import 'package:college_event_calendar/services/notifications/strategies/reminde
 
 class OneDayStrategy implements ReminderStrategy {
   @override
-  DateTime calculateScheduleTime(DateTime eventDate) {
-    return eventDate.subtract(const Duration(days: 1));
+  DateTime calculateScheduleTime(DateTime eventDateUtc) {
+    return eventDateUtc.toUtc().subtract(const Duration(days: 1));
   }
 
   @override
-  String getTimingLabel() => '1 day before';
+  String getTimingLabel() => 'in 1 day';
 
   @override
-  int getMinutesBeforeEvent() => 1440;
+  int getMinutesBeforeEvent() => 1440; // 24 * 60
 }

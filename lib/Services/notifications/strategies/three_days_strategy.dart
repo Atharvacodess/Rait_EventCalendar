@@ -7,8 +7,8 @@ class ThreeDaysStrategy implements ReminderStrategy {
   }
 
   @override
-  String getTimingLabel() => '3 days before';
+  String getTimingLabel() => 'in 3 days';
 
   @override
-  int getMinutesBeforeEvent() => 4320;
+  int getMinutesBeforeEvent() => 4320; // 3 * 24 * 60
 }

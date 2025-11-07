@@ -114,18 +114,20 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo/Header
-                Container(
+                // Logo/Header (replaced with your PNG asset)
+                SizedBox(
                   width: 120,
                   height: 120,
-                  decoration: BoxDecoration(
-                    color: _maroon, // was blue
-                    borderRadius: BorderRadius.circular(60),
-                  ),
-                  child: const Icon(
-                    Icons.school,
-                    size: 60,
-                    color: Colors.white,
+                  child: Image.asset(
+                    'assets/images/rait_logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      decoration: BoxDecoration(
+                        color: _maroon,
+                        borderRadius: BorderRadius.circular(60),
+                      ),
+                      child: const Icon(Icons.school, size: 60, color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -244,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 onPressed: authService.isLoading ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _maroon, // was blue
+                                  backgroundColor: _maroon,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -287,18 +289,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: _maroon, // subtle brand color
+                      color: _maroon,
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // Guest Access Info (maroon-tinted, not blue)
+                // Guest Access Info
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: _maroon.withOpacity(0.06), // light maroon tint
+                    color: _maroon.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: _maroon.withOpacity(0.30)),
                   ),
